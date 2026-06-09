@@ -10,6 +10,7 @@ a clashing generated one.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Callable, List, Optional
@@ -22,6 +23,20 @@ from .store import Store
 
 _CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
 DEFAULT_MIN_CONFIDENCE = "medium"
+DEFAULT_MAX_POLL_MINUTES = 240
+
+
+def next_poll_minutes(base_minutes: int, idle_streak: int, max_minutes: Optional[int] = None) -> int:
+    """Adaptive backoff: poll at the base rate while chat is active, and double
+    the interval after each quiet scan, capped at KIN_POLL_MAX_MINUTES.
+
+    Keeps same-day mentions timely without pinging Kindroid all night: with a
+    15-minute base, a quiet stretch backs off 15 -> 30 -> 60 -> 120 -> 240 min,
+    and one new message snaps it back to 15.
+    """
+    if max_minutes is None:
+        max_minutes = int(os.environ.get("KIN_POLL_MAX_MINUTES", str(DEFAULT_MAX_POLL_MINUTES)))
+    return min(base_minutes * (2 ** idle_streak), max(max_minutes, base_minutes))
 
 
 @dataclass

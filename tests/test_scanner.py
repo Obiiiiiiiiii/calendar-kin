@@ -231,3 +231,50 @@ def test_scan_once_no_cursor_advance_on_error(tmp_path, monkeypatch):
 def test_scan_once_requires_configuration(tmp_path):
     result = scan_once(Store(data_dir=tmp_path))
     assert result.error
+
+
+# -- adaptive polling backoff ---------------------------------------------------
+
+
+def test_next_poll_minutes_backs_off_and_caps():
+    from kin_calendar.scanner import next_poll_minutes
+
+    assert next_poll_minutes(15, 0, max_minutes=240) == 15
+    assert next_poll_minutes(15, 1, max_minutes=240) == 30
+    assert next_poll_minutes(15, 2, max_minutes=240) == 60
+    assert next_poll_minutes(15, 4, max_minutes=240) == 240
+    assert next_poll_minutes(15, 10, max_minutes=240) == 240
+
+
+def test_next_poll_minutes_never_below_base():
+    from kin_calendar.scanner import next_poll_minutes
+
+    # A cap lower than the base must not speed polling up beyond the base rate.
+    assert next_poll_minutes(60, 0, max_minutes=30) == 60
+
+
+# -- pagination -------------------------------------------------------------------
+
+
+def test_get_new_messages_pages_until_caught_up(monkeypatch):
+    from kin_calendar.kindroid import PAGE_LIMIT, KindroidClient
+
+    full_page = [
+        {"timestamp": str(i), "sender": "ai", "message": f"msg {i}"} for i in range(PAGE_LIMIT)
+    ]
+    short_page = [{"timestamp": "200", "sender": "ai", "message": "last one"}]
+    pages = [full_page, short_page]
+    cursors_seen = []
+
+    client = KindroidClient("kn_test", "ai1")
+
+    def fake_fetch(cursor):
+        cursors_seen.append(cursor)
+        return pages.pop(0)
+
+    monkeypatch.setattr(client, "_fetch_page", fake_fetch)
+    messages = client.get_new_messages(start_after_timestamp="50")
+
+    assert len(messages) == PAGE_LIMIT + 1
+    assert cursors_seen == ["50", str(PAGE_LIMIT - 1)]  # second fetch resumes after page 1
+    assert messages[-1]["text"] == "last one"

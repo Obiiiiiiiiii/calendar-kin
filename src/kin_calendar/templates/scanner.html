@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Chat scanner (Phase 2)</h1>
-<p class="muted">Every {{ interval }} minutes, reads new chat messages and catches plannable
-future events the kin mentioned ("I've got that gig Thursday"), writes them to the calendar
-tagged <code>mentioned</code>. Chat is ground truth: a mentioned event displaces a clashing
-generated one.</p>
+<p class="muted">Reads new chat messages and catches plannable future events the kin mentioned
+("I've got that gig Thursday"), writing them to the calendar tagged <code>mentioned</code>.
+Chat is ground truth: a mentioned event displaces a clashing generated one.</p>
+<p class="muted">Polling is adaptive to stay light on Kindroid's API: every {{ interval }} minutes
+while chat is active, doubling after each quiet check up to every {{ max_interval }} minutes.
+One new message snaps it back to the fast rate. The AI is only invoked when there are new
+messages, so quiet checks cost nothing.</p>
 
 {% if not configured %}
 <div class="flash">Not ready yet — the scanner needs the Kindroid API key, the kin's AI id

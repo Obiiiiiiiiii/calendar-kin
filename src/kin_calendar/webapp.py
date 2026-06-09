@@ -59,19 +59,26 @@ def login_required(view):
 
 
 def _scanner_loop(store: Store) -> None:
-    from .scanner import log_scan, scan_once
+    from .scanner import log_scan, next_poll_minutes, scan_once
 
-    interval = int(os.environ.get("KIN_POLL_MINUTES", "15")) * 60
-    last_run = 0.0
+    base = int(os.environ.get("KIN_POLL_MINUTES", "15"))
+    idle_streak = 0
+    next_due = 0.0
     while True:
         time.sleep(30)
         if not store.state().get("scanner_enabled"):
+            idle_streak = 0  # re-enabling starts fresh at the base rate
             continue
-        if time.monotonic() - last_run < interval:
+        if time.monotonic() < next_due:
             continue
-        last_run = time.monotonic()
         result = scan_once(store)
         log_scan(store, result)
+        # Back off while the chat is quiet; snap back when something arrives.
+        if result.error is None and result.messages_seen > 0:
+            idle_streak = 0
+        else:
+            idle_streak += 1
+        next_due = time.monotonic() + next_poll_minutes(base, idle_streak) * 60
 
 
 # ---------------------------------------------------------------------------
@@ -424,8 +431,10 @@ def create_app(store: Store | None = None) -> Flask:
             action = request.form.get("action")
             if action == "enable":
                 store.update_state(scanner_enabled=True)
-                flash("Scanner enabled — it polls every "
-                      f"{os.environ.get('KIN_POLL_MINUTES', '15')} minutes.")
+                flash(
+                    f"Scanner enabled — polls every {os.environ.get('KIN_POLL_MINUTES', '15')} "
+                    "minutes while chat is active, backing off automatically when quiet."
+                )
             elif action == "disable":
                 store.update_state(scanner_enabled=False)
                 flash("Scanner disabled.")
@@ -445,6 +454,7 @@ def create_app(store: Store | None = None) -> Flask:
             "scanner.html",
             state=state,
             interval=os.environ.get("KIN_POLL_MINUTES", "15"),
+            max_interval=os.environ.get("KIN_POLL_MAX_MINUTES", "240"),
             configured=bool(
                 store.setting("kindroid_api_key", "KINDROID_API_KEY")
                 and store.setting("kindroid_ai_id", "KINDROID_AI_ID")

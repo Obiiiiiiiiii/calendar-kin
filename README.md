@@ -43,11 +43,15 @@ drive the same pipeline.
 ### The chat scanner (phase 2)
 
 Once Kindroid credentials are set, the **Chat scanner** page lets you enable a
-background poll (default: every 15 min). It reads new chat messages via
-Kindroid's `/get-chat-messages` cursor, detects plannable future events the
-kin mentioned in plain dialogue ("I've got that gig Thursday"), checks each
-candidate for semantic duplicates and clashes, and writes survivors tagged
-`source = mentioned`. Chat is ground truth: a mentioned event displaces a
+background poll. Polling is adaptive to stay light on Kindroid's API: every
+`KIN_POLL_MINUTES` (default 15) while chat is active, doubling after each
+quiet check up to `KIN_POLL_MAX_MINUTES` (default 240); one new message snaps
+it back to the fast rate, and the LLM is only invoked when there are new
+messages. Each cycle reads new chat messages via Kindroid's
+`/get-chat-messages` cursor (paging until caught up), detects plannable
+future events the kin mentioned in plain dialogue ("I've got that gig
+Thursday"), checks each candidate for semantic duplicates and clashes, and
+writes survivors tagged `source = mentioned`. Chat is ground truth: a mentioned event displaces a
 clashing generated one (the generated event is deleted). Low-confidence
 detections are logged, not written. "Scan now" runs a single cycle for
 testing.

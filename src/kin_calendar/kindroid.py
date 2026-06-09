@@ -18,6 +18,7 @@ import requests
 
 BASE_URL = "https://api.kindroid.ai/v1"
 PAGE_LIMIT = 100  # API max per the brief
+MAX_PAGES = 10  # safety cap per scan cycle
 
 
 class KindroidClient:
@@ -27,7 +28,22 @@ class KindroidClient:
         self.base_url = base_url
 
     def get_new_messages(self, start_after_timestamp: Optional[str] = None) -> List[dict]:
-        """Messages newer than the cursor, oldest first, normalized."""
+        """All messages newer than the cursor, oldest first, normalized.
+
+        Pages until caught up so infrequent polls can't silently miss
+        messages beyond the per-request limit.
+        """
+        messages: List[dict] = []
+        cursor = start_after_timestamp
+        for _ in range(MAX_PAGES):
+            page = [normalize_message(m) for m in self._fetch_page(cursor)]
+            messages.extend(page)
+            if len(page) < PAGE_LIMIT:
+                break
+            cursor = last_timestamp(page) or cursor
+        return messages
+
+    def _fetch_page(self, start_after_timestamp: Optional[str]) -> List[dict]:
         params: dict = {"ai_id": self.ai_id, "limit": PAGE_LIMIT}
         if start_after_timestamp:
             params["start_after_timestamp"] = start_after_timestamp
@@ -39,8 +55,7 @@ class KindroidClient:
         )
         response.raise_for_status()
         payload = response.json()
-        raw_messages = payload if isinstance(payload, list) else payload.get("messages", [])
-        return [normalize_message(m) for m in raw_messages]
+        return payload if isinstance(payload, list) else payload.get("messages", [])
 
 
 def normalize_message(raw: dict) -> dict:
