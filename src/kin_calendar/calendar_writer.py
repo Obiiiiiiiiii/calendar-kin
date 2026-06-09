@@ -15,6 +15,7 @@ from typing import List, Optional
 
 from .models import GeneratedEvent
 from .reconcile import ExistingEvent, first_date_for_weekday
+from .timeutil import zone
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
@@ -157,8 +158,8 @@ class CalendarWriter:
                 events.append(
                     ExistingEvent(
                         title=item.get("summary", ""),
-                        start=datetime.fromisoformat(start).replace(tzinfo=None),
-                        end=datetime.fromisoformat(end).replace(tzinfo=None),
+                        start=self._to_local_naive(start),
+                        end=self._to_local_naive(end),
                         source=props.get(PROVENANCE_KEY, "generated"),
                         created=_parse_google_ts(item.get("created")),
                         updated=_parse_google_ts(item.get("updated")),
@@ -168,6 +169,14 @@ class CalendarWriter:
             page_token = result.get("nextPageToken")
             if not page_token:
                 return events
+
+    def _to_local_naive(self, value: str) -> datetime:
+        """Google returns offset-carrying datetimes; convert to wall-clock time
+        in the configured timezone so comparisons line up with generated events."""
+        dt = datetime.fromisoformat(value)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(zone(self.timezone)).replace(tzinfo=None)
+        return dt
 
     # -- writing -------------------------------------------------------------
 
@@ -183,6 +192,28 @@ class CalendarWriter:
     def delete_event(self, event_id: str) -> None:
         """Remove an event displaced by a replacement (e.g. mentioned beats generated)."""
         self.service.events().delete(calendarId=self.calendar_id, eventId=event_id).execute()
+
+    def delete_all_tool_events(self) -> int:
+        """The undo button: remove every event this tool ever created on the
+        target calendar, found via the hidden tool tag. Cannot touch events
+        created by anything else, even on a shared calendar."""
+        deleted = 0
+        page_token = None
+        while True:
+            result = self.service.events().list(
+                calendarId=self.calendar_id,
+                privateExtendedProperty=f"{TOOL_KEY}={TOOL_NAME}",
+                maxResults=2500,
+                pageToken=page_token,
+            ).execute()
+            for item in result.get("items", []):
+                self.service.events().delete(
+                    calendarId=self.calendar_id, eventId=item["id"]
+                ).execute()
+                deleted += 1
+            page_token = result.get("nextPageToken")
+            if not page_token:
+                return deleted
 
     def _event_body(self, event: GeneratedEvent, week_start: date, provenance: str) -> dict:
         if event.type == "oneoff":

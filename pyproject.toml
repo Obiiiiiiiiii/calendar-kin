@@ -15,6 +15,7 @@ dependencies = [
     "flask>=3.0",
     "gunicorn>=22.0",
     "requests>=2.31",
+    "tzdata",
 ]
 
 [project.optional-dependencies]

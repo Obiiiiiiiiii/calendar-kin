@@ -28,6 +28,10 @@ Kindroid reads.</p>
     <li>{% if status.spine_exists %}<a href="{{ url_for('spine') }}">Review the spine</a>{% else %}<span class="muted">Review the spine</span>{% endif %} → generate the week</li>
     <li>{% if status.events_exist %}<a href="{{ url_for('events') }}">Review the events</a>{% else %}<span class="muted">Review the events</span>{% endif %} → write to the calendar</li>
     <li><a href="{{ url_for('scanner') }}">Chat scanner</a>: {% if status.scanner_enabled %}<span class="ok">running</span>{% else %}off{% endif %}</li>
+    <li>Auto-refresh: {% if state.auto_refresh_enabled %}<span class="ok">on</span>
+        {% if state.last_week_start %} — current week started {{ state.last_week_start }}; the next
+        one generates automatically{% else %} — starts after your first write{% endif %}
+        {% else %}off{% endif %}</li>
   </ol>
 </div>
 {% endblock %}

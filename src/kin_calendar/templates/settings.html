@@ -40,9 +40,17 @@
 <div class="card">
   <h2>General</h2>
   <form method="post">
+    <input type="hidden" name="general_form" value="1">
     <label for="timezone">Timezone (IANA name)</label>
     <input type="text" id="timezone" name="timezone" placeholder="America/New_York"
            value="{{ state.timezone or '' }}">
+    <p class="muted">All date reasoning ("tonight", "Thursday", the ±24h window) uses this —
+    not the server's clock. Can also be set via the KIN_TIMEZONE environment variable.</p>
+    <label style="font-weight: normal;">
+      <input type="checkbox" name="auto_refresh" {% if state.auto_refresh_enabled %}checked{% endif %}>
+      Auto-refresh: generate and write a fresh week automatically a few days before the
+      current one runs out (uses your confirmed spine; standing commitments aren't duplicated)
+    </label>
     <h3>Kindroid (for the chat scanner)</h3>
     <label for="kindroid_api_key">Kindroid API key {% if kindroid_key_set %}<span class="ok">(set)</span>{% endif %}</label>
     <input type="password" id="kindroid_api_key" name="kindroid_api_key" placeholder="kn_...">

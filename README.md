@@ -23,9 +23,11 @@ drive the same pipeline.
    - `APP_PASSWORD` — pick one; it gates the whole web UI.
    - `ANTHROPIC_API_KEY` — from console.anthropic.com.
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — see Google setup below.
-   - optional: `KIN_TIMEZONE` (e.g. `America/New_York`), `KIN_POLL_MINUTES`
-     (scanner interval, default 15), `SECRET_KEY` (keeps logins across
-     restarts).
+   - `KIN_TIMEZONE` — your IANA timezone (e.g. `America/New_York`). All date
+     reasoning ("tonight", "Thursday", the ±24h window) uses this, never the
+     server clock (Railway runs UTC). Can also be set on the Settings page.
+   - optional: `KIN_POLL_MINUTES` (scanner interval, default 15),
+     `SECRET_KEY` (keeps logins across restarts).
 4. **Google setup (one-time, ~10 min).** In Google Cloud Console: create a
    project → enable the **Google Calendar API** → configure the OAuth consent
    screen (External, add your own Google account as a test user) → create an
@@ -39,6 +41,22 @@ drive the same pipeline.
 6. **Run the flow**: paste backstory → review spine → generate → review events
    → write. Then connect the calendar in Kindroid and verify the events render
    to the kin (and that the hidden provenance metadata does not surface).
+
+### Auto-refresh (keeps the week from going stale)
+
+After your first manual write, the app keeps the calendar textured on its
+own: a few days before the generated week runs out, it regenerates a fresh
+week from your **confirmed spine** and writes it through the same
+reconciliation (standing commitments already on the calendar are skipped;
+only new one-off "deltas" land). Toggle it on the Settings page. The spine
+stays the human-reviewed source of truth — auto-refresh never re-extracts or
+edits it, so revisit the spine when the character's life changes.
+
+### Starting over
+
+The Events page has a "Remove all events created by this tool" button. It
+finds events by the hidden tool tag, so it can only ever delete what this
+tool wrote — events from any other source are untouched.
 
 ### The chat scanner (phase 2)
 

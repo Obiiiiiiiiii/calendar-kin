@@ -58,27 +58,44 @@ def login_required(view):
 # ---------------------------------------------------------------------------
 
 
-def _scanner_loop(store: Store) -> None:
+def _background_loop(store: Store) -> None:
+    """One loop, two jobs: the chat scanner poll and the weekly auto-refresh."""
+    from .refresh import auto_refresh, refresh_due
     from .scanner import log_scan, next_poll_minutes, scan_once
+    from .timeutil import local_now
 
     base = int(os.environ.get("KIN_POLL_MINUTES", "15"))
     idle_streak = 0
-    next_due = 0.0
+    scan_due = 0.0
+    refresh_retry_gate = 0.0  # backoff after a failed refresh (don't hammer the LLM)
+
     while True:
         time.sleep(30)
-        if not store.state().get("scanner_enabled"):
-            idle_streak = 0  # re-enabling starts fresh at the base rate
-            continue
-        if time.monotonic() < next_due:
-            continue
-        result = scan_once(store)
-        log_scan(store, result)
-        # Back off while the chat is quiet; snap back when something arrives.
-        if result.error is None and result.messages_seen > 0:
-            idle_streak = 0
+        state = store.state()
+
+        if state.get("scanner_enabled"):
+            if time.monotonic() >= scan_due:
+                result = scan_once(store)
+                log_scan(store, result)
+                # Back off while the chat is quiet; snap back when something arrives.
+                if result.error is None and result.messages_seen > 0:
+                    idle_streak = 0
+                else:
+                    idle_streak += 1
+                scan_due = time.monotonic() + next_poll_minutes(base, idle_streak) * 60
         else:
-            idle_streak += 1
-        next_due = time.monotonic() + next_poll_minutes(base, idle_streak) * 60
+            idle_streak = 0  # re-enabling starts fresh at the base rate
+
+        if (
+            state.get("auto_refresh_enabled", True)
+            and time.monotonic() >= refresh_retry_gate
+            and refresh_due(state, local_now(store.timezone()).date())
+        ):
+            result = auto_refresh(store)
+            stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+            store.append_log(f"[{stamp}] {result.summary()}")
+            if result.error:
+                refresh_retry_gate = time.monotonic() + 6 * 3600
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +111,7 @@ def create_app(store: Store | None = None) -> Flask:
     app.config["STORE"] = store
 
     if os.environ.get("DISABLE_SCANNER_THREAD") != "1":
-        thread = threading.Thread(target=_scanner_loop, args=(store,), daemon=True)
+        thread = threading.Thread(target=_background_loop, args=(store,), daemon=True)
         thread.start()
 
     # -- auth ----------------------------------------------------------------
@@ -284,14 +301,16 @@ def create_app(store: Store | None = None) -> Flask:
             return redirect(url_for("settings"))
 
         from .calendar_writer import CalendarWriter, service_from_token
+        from .timeutil import aware_now, local_now
 
         output = GenerationOutput.model_validate_json(raw)
         week_start = date.fromisoformat(output.week_start)
+        tz = store.timezone()
         try:
             service = service_from_token(str(store.token_path))
-            writer = CalendarWriter(service, state["calendar_id"], store.timezone())
-            window_start = datetime.now().astimezone() - timedelta(hours=24)
-            window_end = datetime.now().astimezone() + timedelta(days=8)
+            writer = CalendarWriter(service, state["calendar_id"], tz)
+            window_start = aware_now(tz) - timedelta(hours=24)
+            window_end = aware_now(tz) + timedelta(days=8)
             existing = writer.list_existing(window_start, window_end)
             report = reconcile(output.result.events, existing, week_start)
             written = 0
@@ -302,17 +321,41 @@ def create_app(store: Store | None = None) -> Flask:
             flash(f"Write failed: {e}")
             return redirect(url_for("events"))
 
+        store.update_state(last_week_start=output.week_start)
         flash(f"Wrote {written} event(s) to {state.get('calendar_label')!r}.")
         for v in report.rejected:
             flash(f"Skipped {v.event.title!r}: {v.decision.value} — {v.reason}")
         occurrences = [
             occ for ev in report.accepted for occ in expand_occurrences(ev, week_start)
         ]
-        for note in coverage_check(occurrences, datetime.now()):
+        for note in coverage_check(occurrences, local_now(tz)):
             flash(f"Heads-up: {note}")
         flash(
             "Now verify in Kindroid that the events render to the kin and the hidden "
             "provenance metadata does not surface."
+        )
+        return redirect(url_for("events"))
+
+    @app.post("/clear")
+    @login_required
+    def clear():
+        state = store.state()
+        if not state.get("calendar_id"):
+            flash("No target calendar designated.")
+            return redirect(url_for("settings"))
+        from .calendar_writer import CalendarWriter, service_from_token
+
+        try:
+            service = service_from_token(str(store.token_path))
+            writer = CalendarWriter(service, state["calendar_id"], store.timezone())
+            deleted = writer.delete_all_tool_events()
+        except Exception as e:  # noqa: BLE001
+            flash(f"Cleanup failed: {e}")
+            return redirect(url_for("events"))
+        store.update_state(last_week_start=None)
+        flash(
+            f"Removed {deleted} event(s) this tool had created on "
+            f"{state.get('calendar_label')!r}. Events from other sources were not touched."
         )
         return redirect(url_for("events"))
 
@@ -322,15 +365,27 @@ def create_app(store: Store | None = None) -> Flask:
     @login_required
     def settings():
         if request.method == "POST":
+            from .timeutil import is_valid_timezone
+
             changes = {}
+            tz_value = request.form.get("timezone", "").strip()
+            if tz_value:
+                if is_valid_timezone(tz_value):
+                    changes["timezone"] = tz_value
+                else:
+                    flash(
+                        f"{tz_value!r} is not a recognized timezone — use an IANA name "
+                        "like America/New_York or Europe/London."
+                    )
             for form_key, state_key in [
-                ("timezone", "timezone"),
                 ("kindroid_api_key", "kindroid_api_key"),
                 ("kindroid_ai_id", "kindroid_ai_id"),
             ]:
                 value = request.form.get(form_key, "").strip()
                 if value:
                     changes[state_key] = value
+            if request.form.get("general_form"):
+                changes["auto_refresh_enabled"] = bool(request.form.get("auto_refresh"))
             choice = request.form.get("calendar_choice", "")
             if choice:
                 cal_id, _, label = choice.partition("|")

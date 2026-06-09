@@ -23,6 +23,8 @@ _DEFAULT_STATE = {
     "scanner_enabled": False,
     "scanner_cursor": None,
     "scanner_log": [],  # newest first, capped
+    "auto_refresh_enabled": True,
+    "last_week_start": None,  # set on each write; drives the weekly auto-refresh
 }
 
 _LOG_CAP = 50

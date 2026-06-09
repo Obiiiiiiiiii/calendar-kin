@@ -46,4 +46,17 @@
   <p class="bad">No target calendar designated yet — <a href="{{ url_for('settings') }}">pick one in Settings</a>.</p>
   {% endif %}
 </div>
+
+{% if calendar_label %}
+<div class="card">
+  <h2>Start over</h2>
+  <p class="muted">Removes every event this tool has ever created on the target calendar
+  (found by its hidden tag) — events from any other source are untouched. Use this when a
+  generated week didn't land right and you want a clean slate.</p>
+  <form method="post" action="{{ url_for('clear') }}"
+        onsubmit="return confirm('Remove ALL events this tool created on {{ calendar_label }}?');">
+    <button type="submit" class="danger">Remove all events created by this tool</button>
+  </form>
+</div>
+{% endif %}
 {% endblock %}

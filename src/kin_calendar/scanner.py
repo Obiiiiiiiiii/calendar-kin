@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Callable, List, Optional
@@ -20,6 +21,11 @@ from .kindroid import KindroidClient, format_transcript, last_timestamp, normali
 from .models import WEEKDAY_ORDER, MentionCandidate
 from .reconcile import Decision, ExistingEvent, reconcile
 from .store import Store
+from .timeutil import local_now, zone
+
+# One calendar-writing job at a time: prevents the "Scan now" button, the
+# background poller, and the weekly auto-refresh from double-processing.
+work_lock = threading.Lock()
 
 _CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
 DEFAULT_MIN_CONFIDENCE = "medium"
@@ -86,8 +92,26 @@ def scan_once(
     now: Optional[datetime] = None,
 ) -> ScanResult:
     """Run one poll cycle. `client`/`writer_factory` are injectable for tests."""
+    if not work_lock.acquire(blocking=False):
+        return ScanResult(error="another scan or refresh is already running")
+    try:
+        return _scan_locked(store, min_confidence, client, writer_factory, now)
+    finally:
+        work_lock.release()
+
+
+def _scan_locked(
+    store: Store,
+    min_confidence: str,
+    client: Optional[KindroidClient],
+    writer_factory: Optional[Callable],
+    now: Optional[datetime],
+) -> ScanResult:
     result = ScanResult()
-    now = now or datetime.now()
+    tz = store.timezone()
+    # Wall-clock "now" in the USER's timezone — "tomorrow"/"Thursday" must
+    # resolve against their day, not the server's (UTC on Railway).
+    now = now or local_now(tz)
     state = store.state()
 
     api_key = store.setting("kindroid_api_key", "KINDROID_API_KEY")
@@ -144,8 +168,9 @@ def scan_once(
 
     try:
         writer = writer_factory() if writer_factory else _default_writer(store)
-        window_start = now.astimezone() - timedelta(hours=24)
-        window_end = now.astimezone() + timedelta(days=8)
+        tzinfo = zone(tz)
+        window_start = (now - timedelta(hours=24)).replace(tzinfo=tzinfo)
+        window_end = (now + timedelta(days=8)).replace(tzinfo=tzinfo)
         existing = writer.list_existing(window_start, window_end)
 
         survivors: List[MentionCandidate] = []
