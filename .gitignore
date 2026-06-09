@@ -12,3 +12,4 @@ token.json
 # Working artifacts from the flow
 spine.json
 events.json
+data/

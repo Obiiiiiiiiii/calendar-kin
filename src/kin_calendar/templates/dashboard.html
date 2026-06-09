@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Kin Life Calendar</h1>
+<p class="muted">Give your kin a believable offscreen life: paste its backstory, review what the AI
+understood, review the week it proposes, and write it to a dedicated Google Calendar that
+Kindroid reads.</p>
+
+<div class="card">
+  <h2>Setup status</h2>
+  <ul class="compact">
+    <li>{% if status.password_set %}<span class="ok">✔</span> App password set
+        {% else %}<span class="bad">✘</span> <strong>APP_PASSWORD not set</strong> — anyone with the URL can use this instance{% endif %}</li>
+    <li>{% if status.anthropic_key %}<span class="ok">✔</span> Anthropic API key configured
+        {% else %}<span class="bad">✘</span> ANTHROPIC_API_KEY missing (set it in your host's environment variables){% endif %}</li>
+    <li>{% if status.google_connected %}<span class="ok">✔</span> Google Calendar connected
+        {% else %}<span class="bad">✘</span> Google Calendar not connected — <a href="{{ url_for('settings') }}">connect in Settings</a>{% endif %}</li>
+    <li>{% if status.calendar %}<span class="ok">✔</span> Target calendar: <span class="pill">{{ status.calendar }}</span>
+        {% else %}<span class="bad">✘</span> No target calendar designated — <a href="{{ url_for('settings') }}">pick one in Settings</a>{% endif %}</li>
+    <li>{% if status.kindroid %}<span class="ok">✔</span> Kindroid API configured (chat scanner ready)
+        {% else %}<span class="muted">○</span> Kindroid API not configured (only needed for the chat scanner)</li>{% endif %}</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>Where you are</h2>
+  <ol>
+    <li>{% if status.spine_exists %}<span class="ok">✔</span>{% endif %} <a href="{{ url_for('extract') }}">Paste the backstory</a> → spine</li>
+    <li>{% if status.spine_exists %}<a href="{{ url_for('spine') }}">Review the spine</a>{% else %}<span class="muted">Review the spine</span>{% endif %} → generate the week</li>
+    <li>{% if status.events_exist %}<a href="{{ url_for('events') }}">Review the events</a>{% else %}<span class="muted">Review the events</span>{% endif %} → write to the calendar</li>
+    <li><a href="{{ url_for('scanner') }}">Chat scanner</a>: {% if status.scanner_enabled %}<span class="ok">running</span>{% else %}off{% endif %}</li>
+  </ol>
+</div>
+{% endblock %}

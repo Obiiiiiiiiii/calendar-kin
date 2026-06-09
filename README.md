@@ -8,12 +8,62 @@ The tool runs entirely outside Kindroid. It only generates events and writes
 them — Kindroid handles reading the calendar, proactive-message timing, and
 time awareness natively.
 
+There are two ways to run it: a **web app you self-host** (e.g. on Railway —
+no local Python needed) or a **command-line tool** on your own machine. Both
+drive the same pipeline.
+
+## Self-host on Railway (no local Python)
+
+1. **Deploy.** Create a new Railway project from this GitHub repo. The included
+   `Dockerfile` and `railway.toml` are picked up automatically.
+2. **Add a volume** mounted at `/data` (Railway → service → Volumes). This is
+   where the app keeps its state, the Google token, and the scanner's
+   place-marker, so they survive redeploys.
+3. **Set environment variables** (Railway → service → Variables):
+   - `APP_PASSWORD` — pick one; it gates the whole web UI.
+   - `ANTHROPIC_API_KEY` — from console.anthropic.com.
+   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — see Google setup below.
+   - optional: `KIN_TIMEZONE` (e.g. `America/New_York`), `KIN_POLL_MINUTES`
+     (scanner interval, default 15), `SECRET_KEY` (keeps logins across
+     restarts).
+4. **Google setup (one-time, ~10 min).** In Google Cloud Console: create a
+   project → enable the **Google Calendar API** → configure the OAuth consent
+   screen (External, add your own Google account as a test user) → create an
+   **OAuth client ID of type "Web application"** with the authorized redirect
+   URI set to `https://<your-railway-domain>/google/callback`. Copy the client
+   ID and secret into the Railway variables above.
+5. **Open the app.** Log in, then in **Settings**: Connect Google Calendar,
+   pick the kin's target calendar (your main calendar is blocked on purpose),
+   set your timezone, and — for the chat scanner — your Kindroid API key and
+   the kin's AI id.
+6. **Run the flow**: paste backstory → review spine → generate → review events
+   → write. Then connect the calendar in Kindroid and verify the events render
+   to the kin (and that the hidden provenance metadata does not surface).
+
+### The chat scanner (phase 2)
+
+Once Kindroid credentials are set, the **Chat scanner** page lets you enable a
+background poll (default: every 15 min). It reads new chat messages via
+Kindroid's `/get-chat-messages` cursor, detects plannable future events the
+kin mentioned in plain dialogue ("I've got that gig Thursday"), checks each
+candidate for semantic duplicates and clashes, and writes survivors tagged
+`source = mentioned`. Chat is ground truth: a mentioned event displaces a
+clashing generated one (the generated event is deleted). Low-confidence
+detections are logged, not written. "Scan now" runs a single cycle for
+testing.
+
+> Note: the exact field names in Kindroid's chat-message payload are
+> normalized defensively (`kindroid.py`) — verify against the live API on
+> first run.
+
+## Run locally instead (CLI)
+
 ## How it works
 
 ```
 [backstory input] → [extraction] → [user review/confirm] → [generation] → [reconciliation] → [write to dedicated calendar]
    (swappable)                                                                   ↑
-                                                  [reactive poller — PHASE 2] reads chat, proposes events
+                                                  [reactive poller] reads chat, proposes events (source = mentioned)
 ```
 
 1. **Extract** — an LLM reads the pasted backstory and produces a structured
@@ -109,15 +159,11 @@ calendar — the kin's fictional life must stay separate from your real one.
      This is an assumption to verify against the live integration before
      relying on it.
 
-## Phase 2 (described, not built)
+## Still out of scope
 
-A reactive poller will read new chat messages via Kindroid's
-`GET /get-chat-messages` (with the `start_after_timestamp` cursor) and detect
-natural-language mentions of plannable future events, tagging them
-`source = mentioned`. Each candidate runs through the same reconciliation in
-`kin_calendar/reconcile.py` — the semantic layer (`semantic_review`) is the
-stub it fills in. Out of scope for the MVP alongside recurring auto-refresh
-and multi-user hosting.
+Recurring automatic re-generation of future weeks, and multi-*user* hosting
+(one shared instance serving strangers). The self-host model sidesteps the
+latter: each user deploys their own private copy with their own keys.
 
 ## Development
 

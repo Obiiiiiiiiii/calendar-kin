@@ -114,6 +114,29 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# serve / poll
+# ---------------------------------------------------------------------------
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    from .webapp import create_app
+
+    create_app().run(host="0.0.0.0", port=args.port)
+    return 0
+
+
+def cmd_poll(args: argparse.Namespace) -> int:
+    from .scanner import log_scan, scan_once
+    from .store import Store
+
+    store = Store()
+    result = scan_once(store)
+    log_scan(store, result)
+    print(result.summary(), file=sys.stderr)
+    return 1 if result.error else 0
+
+
+# ---------------------------------------------------------------------------
 # calendars
 # ---------------------------------------------------------------------------
 
@@ -222,6 +245,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--week-start", help="YYYY-MM-DD (default: today)")
     p.add_argument("--weather", help="optional weather forecast text")
     p.set_defaults(func=cmd_generate)
+
+    p = sub.add_parser("serve", help="run the web interface locally")
+    p.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8080")))
+    p.set_defaults(func=cmd_serve)
+
+    p = sub.add_parser("poll", help="run one chat-scanner cycle (phase 2)")
+    p.set_defaults(func=cmd_poll)
 
     p = sub.add_parser("calendars", help="list your Google calendars (to pick one by ID)")
     p.add_argument("--credentials", default="credentials.json", help="Google OAuth client secrets")

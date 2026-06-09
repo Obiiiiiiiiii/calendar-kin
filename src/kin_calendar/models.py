@@ -134,6 +134,30 @@ class GenerationResult(BaseModel):
     events: List[GeneratedEvent] = Field(default_factory=list)
 
 
+Confidence = Literal["high", "medium", "low"]
+
+
+class MentionCandidate(GeneratedEvent):
+    """A plannable future event detected in chat dialogue (phase 2).
+
+    `quote` is the line of dialogue it came from, kept for review/audit.
+    """
+
+    quote: str
+    confidence: Confidence
+
+
+class MentionScan(BaseModel):
+    candidates: List[MentionCandidate] = Field(default_factory=list)
+
+
+class DuplicateCheck(BaseModel):
+    """Semantic-duplicate verdict: index into the existing-events list, or null."""
+
+    duplicate_of: Optional[int] = None
+    reason: str = ""
+
+
 class GenerationOutput(BaseModel):
     """What `kin-calendar generate` writes to disk: the result plus the
     parameters needed to interpret it at write time."""

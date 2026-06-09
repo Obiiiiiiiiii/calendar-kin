@@ -36,6 +36,29 @@ _RRULE_DAY = {
 }
 
 
+def service_from_token(token_path: str):
+    """Build a Calendar service from a saved token only (no interactive flow).
+
+    Used by the web app, where Google access is granted via the browser
+    redirect flow and the token is saved to the data directory.
+    """
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+
+    token_file = Path(token_path)
+    if not token_file.exists():
+        raise RuntimeError("Google Calendar is not connected yet")
+    creds = Credentials.from_authorized_user_file(str(token_file), SCOPES)
+    if not creds.valid:
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            token_file.write_text(creds.to_json(), encoding="utf-8")
+        else:
+            raise RuntimeError("Google Calendar token is invalid — reconnect")
+    return build("calendar", "v3", credentials=creds)
+
+
 def build_service(credentials_path: str = "credentials.json", token_path: str = "token.json"):
     """OAuth installed-app flow. Caches the token next to the project."""
     from google.auth.transport.requests import Request
@@ -139,6 +162,7 @@ class CalendarWriter:
                         source=props.get(PROVENANCE_KEY, "generated"),
                         created=_parse_google_ts(item.get("created")),
                         updated=_parse_google_ts(item.get("updated")),
+                        event_id=item.get("id"),
                     )
                 )
             page_token = result.get("nextPageToken")
@@ -155,6 +179,10 @@ class CalendarWriter:
     ) -> dict:
         body = self._event_body(event, week_start, provenance)
         return self.service.events().insert(calendarId=self.calendar_id, body=body).execute()
+
+    def delete_event(self, event_id: str) -> None:
+        """Remove an event displaced by a replacement (e.g. mentioned beats generated)."""
+        self.service.events().delete(calendarId=self.calendar_id, eventId=event_id).execute()
 
     def _event_body(self, event: GeneratedEvent, week_start: date, provenance: str) -> dict:
         if event.type == "oneoff":

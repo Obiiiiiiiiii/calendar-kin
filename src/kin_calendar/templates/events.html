@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Step 3 · Review the proposed week</h1>
+
+{% if rows %}
+<table>
+  <tr><th>When</th><th>Time</th><th>Event</th><th></th></tr>
+  {% for r in rows %}
+  <tr>
+    <td>{{ r.when }}</td>
+    <td>{{ r.time }}</td>
+    <td>{{ r.title }}</td>
+    <td>{% if r.gates %}<span class="pill">busy/unreachable</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+{% for p in problems %}<div class="flash">Problem: {{ p }}</div>{% endfor %}
+{% for w in warnings %}<div class="flash">{{ w }}</div>{% endfor %}
+
+{% if routine_note %}
+<div class="card">
+  <strong>Suggested routine note</strong> — <em>not</em> written anywhere automatically.
+  If you want it, paste it into your kin's profile yourself; this tool never edits profile fields.
+  <p class="pill">{{ routine_note }}</p>
+</div>
+{% endif %}
+
+<details>
+  <summary>Edit the raw events JSON</summary>
+  <form method="post" action="{{ url_for('events') }}">
+    <textarea name="events_json" rows="20">{{ events_json }}</textarea>
+    <p><button type="submit" class="secondary">Save edits</button></p>
+  </form>
+</details>
+
+<div class="card">
+  <h2>Write to the calendar</h2>
+  {% if calendar_label %}
+  <p>Target: <span class="pill">{{ calendar_label }}</span></p>
+  <form method="post" action="{{ url_for('write') }}">
+    <button type="submit">Write these events</button>
+  </form>
+  {% else %}
+  <p class="bad">No target calendar designated yet — <a href="{{ url_for('settings') }}">pick one in Settings</a>.</p>
+  {% endif %}
+</div>
+{% endblock %}

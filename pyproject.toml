@@ -12,6 +12,9 @@ dependencies = [
     "pydantic>=2.7",
     "google-api-python-client>=2.130",
     "google-auth-oauthlib>=1.2",
+    "flask>=3.0",
+    "gunicorn>=22.0",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]

@@ -40,8 +40,9 @@ class Decision(str, Enum):
 class ExistingEvent:
     """An event already on the calendar (any provenance).
 
-    `created`/`updated` are Google's own timestamps (UTC), carried for the
-    phase-2 "newer beats older" resolution; the MVP doesn't branch on them.
+    `created`/`updated` are Google's own timestamps (UTC), carried for
+    "newer beats older" resolution. `event_id` is Google's event ID, needed
+    when a replacement has to delete this event.
     """
 
     title: str
@@ -50,6 +51,7 @@ class ExistingEvent:
     source: str = "generated"  # "generated" | "mentioned"
     created: Optional[datetime] = None
     updated: Optional[datetime] = None
+    event_id: Optional[str] = None
 
 
 @dataclass
@@ -64,6 +66,7 @@ class Verdict:
     event: GeneratedEvent
     decision: Decision
     reason: str = ""
+    replaces: Optional[ExistingEvent] = None  # set on Decision.REPLACE
 
 
 @dataclass
@@ -76,8 +79,14 @@ class ReconcileReport:
         return [v.event for v in self.verdicts if v.decision == Decision.ADD]
 
     @property
+    def replacements(self) -> List[Verdict]:
+        return [v for v in self.verdicts if v.decision == Decision.REPLACE]
+
+    @property
     def rejected(self) -> List[Verdict]:
-        return [v for v in self.verdicts if v.decision != Decision.ADD]
+        return [
+            v for v in self.verdicts if v.decision not in (Decision.ADD, Decision.REPLACE)
+        ]
 
 
 def _parse_time(value: str) -> time:
@@ -135,8 +144,14 @@ def reconcile(
     candidates: List[GeneratedEvent],
     existing: List[ExistingEvent],
     week_start: date,
+    candidate_source: str = "generated",
 ) -> ReconcileReport:
-    """Decide add / skip / reject / evict for each candidate, in order."""
+    """Decide add / skip / reject / replace / evict for each candidate, in order.
+
+    Provenance rule: a chat-`mentioned` candidate that clashes with an existing
+    `generated` event REPLACES it (chat is ground truth). A `generated`
+    candidate never displaces anything already on the calendar.
+    """
     report = ReconcileReport()
     accepted_occurrences: List[Occurrence] = []
     window_count = len(existing)
@@ -184,13 +199,27 @@ def reconcile(
         )
         if ex_clash:
             occ, ex = ex_clash
-            report.verdicts.append(
-                Verdict(
-                    event,
-                    Decision.REJECT_OVERLAP,
-                    f"overlaps existing {ex.title!r} at {occ.start:%a %Y-%m-%d %H:%M}",
+            if candidate_source == "mentioned" and ex.source == "generated":
+                # Chat is ground truth: the mentioned event displaces the
+                # generated one it collides with.
+                window_count += len(occurrences)
+                accepted_occurrences.extend(occurrences)
+                report.verdicts.append(
+                    Verdict(
+                        event,
+                        Decision.REPLACE,
+                        f"displaces generated {ex.title!r} at {occ.start:%a %Y-%m-%d %H:%M}",
+                        replaces=ex,
+                    )
                 )
-            )
+            else:
+                report.verdicts.append(
+                    Verdict(
+                        event,
+                        Decision.REJECT_OVERLAP,
+                        f"overlaps existing {ex.title!r} at {occ.start:%a %Y-%m-%d %H:%M}",
+                    )
+                )
             continue
 
         objection = semantic_review(event, existing)

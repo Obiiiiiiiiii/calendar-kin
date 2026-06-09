@@ -21,7 +21,7 @@ from typing import Optional, Type, TypeVar
 import anthropic
 from pydantic import BaseModel, ValidationError
 
-from .models import GenerationResult, Spine
+from .models import DuplicateCheck, GenerationResult, MentionScan, Spine
 
 DEFAULT_MODEL = "claude-opus-4-8"
 MAX_TOKENS = 16000
@@ -89,3 +89,36 @@ def generate_events(
         .replace("{{WEATHER_FORECAST}}", weather_forecast or "(none provided)")
     )
     return _call(prompt, GenerationResult, "KIN_GENERATE_TEMPERATURE")
+
+
+def detect_mentions(
+    transcript: str,
+    today: str,
+    today_weekday: str,
+    date_table: str,
+    timezone: str,
+) -> MentionScan:
+    """Phase 2: chat transcript -> plannable future events the kin mentioned.
+
+    Conservative by instruction: an empty candidate list is the expected
+    answer for most transcripts.
+    """
+    prompt = (
+        _load_prompt("mention.txt")
+        .replace("{{TRANSCRIPT}}", transcript)
+        .replace("{{TODAY}}", today)
+        .replace("{{TODAY_WEEKDAY}}", today_weekday)
+        .replace("{{DATE_TABLE}}", date_table)
+        .replace("{{TIMEZONE}}", timezone)
+    )
+    return _call(prompt, MentionScan, "KIN_EXTRACT_TEMPERATURE")
+
+
+def semantic_duplicate(candidate_json: str, existing_listing: str) -> DuplicateCheck:
+    """Phase 2: is the candidate a reworded duplicate of an existing event?"""
+    prompt = (
+        _load_prompt("duplicate.txt")
+        .replace("{{CANDIDATE}}", candidate_json)
+        .replace("{{EXISTING}}", existing_listing)
+    )
+    return _call(prompt, DuplicateCheck, "KIN_EXTRACT_TEMPERATURE")
