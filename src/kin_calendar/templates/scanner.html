@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Chat scanner (Phase 2)</h1>
+<p class="muted">Reads new chat messages and catches plannable future events the kin mentioned
+("I've got that gig Thursday"), writing them to the calendar tagged <code>mentioned</code>.
+Chat is ground truth: a mentioned event displaces a clashing generated one.</p>
+<p class="muted">Polling is adaptive to stay light on Kindroid's API: every {{ interval }} minutes
+while chat is active, doubling after each quiet check up to every {{ max_interval }} minutes.
+One new message snaps it back to the fast rate. The AI is only invoked when there are new
+messages, so quiet checks cost nothing.</p>
+
+{% if not configured %}
+<div class="flash">Not ready yet — the scanner needs the Kindroid API key, the kin's AI id
+(both in <a href="{{ url_for('settings') }}">Settings</a>), and a designated calendar.</div>
+{% endif %}
+
+<div class="card">
+  <p>Status: {% if state.scanner_enabled %}<span class="ok">enabled</span>{% else %}<span class="bad">disabled</span>{% endif %}
+  {% if state.scanner_cursor %} · cursor: <span class="pill">{{ state.scanner_cursor }}</span>{% endif %}</p>
+  <form method="post" style="display:inline">
+    {% if state.scanner_enabled %}
+      <button name="action" value="disable" class="danger">Disable</button>
+    {% else %}
+      <button name="action" value="enable" {% if not configured %}disabled{% endif %}>Enable</button>
+    {% endif %}
+  </form>
+  <form method="post" style="display:inline">
+    <button name="action" value="scan_now" class="secondary" {% if not configured %}disabled{% endif %}>Scan now</button>
+  </form>
+  <form method="post" style="display:inline">
+    <button name="action" value="reset_cursor" class="secondary">Reset cursor</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Recent activity</h2>
+  {% if state.scanner_log %}
+  <ul class="compact">{% for line in state.scanner_log %}<li><code>{{ line }}</code></li>{% endfor %}</ul>
+  {% else %}<p class="muted">Nothing yet.</p>{% endif %}
+</div>
+{% endblock %}

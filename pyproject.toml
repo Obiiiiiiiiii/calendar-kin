@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kin-calendar"
+version = "0.1.0"
+description = "Generates a believable offscreen life for a Kindroid companion and writes it to a dedicated Google Calendar"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.50",
+    "pydantic>=2.7",
+    "google-api-python-client>=2.130",
+    "google-auth-oauthlib>=1.2",
+    "flask>=3.0",
+    "gunicorn>=22.0",
+    "requests>=2.31",
+    "tzdata",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+kin-calendar = "kin_calendar.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kin_calendar"]

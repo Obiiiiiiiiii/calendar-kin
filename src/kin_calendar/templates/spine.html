@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Step 2 · Review the life spine</h1>
+<p class="muted">This is the character-fidelity safeguard: every event generated from this spine
+becomes "true" for your kin. Fix anything wrong before generating.</p>
+
+{% if flags %}
+<div class="card">
+  <strong>Check these first</strong> — the AI marked them as guesses or unknowns:
+  <ul class="compact">{% for f in flags %}<li>{{ f }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% if questions %}
+<div class="card">
+  <strong>Open questions</strong> — decide these before generating:
+  <ul class="compact">{% for q in questions %}<li>{{ q }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('spine') }}">
+  <textarea name="spine_json" rows="24">{{ spine_json }}</textarea>
+  <p><button type="submit" class="secondary">Save edits</button></p>
+</form>
+
+<div class="card">
+  <h2>Generate the week</h2>
+  <form method="post" action="{{ url_for('generate') }}">
+    <label for="week_start">Week starts</label>
+    <input type="date" id="week_start" name="week_start" value="{{ today }}">
+    <label for="weather">Weather forecast (optional)</label>
+    <input type="text" id="weather" name="weather" placeholder="e.g. heavy rain Tue–Wed, clear weekend">
+    <p><button type="submit">Generate events from this spine</button></p>
+  </form>
+</div>
+{% endblock %}

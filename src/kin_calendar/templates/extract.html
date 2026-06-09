@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Step 1 · Paste the kin's backstory</h1>
+<p class="muted">The AI reads only this text — it never imports outside facts. You'll review
+everything it extracts before anything is generated.</p>
+<form method="post">
+  <textarea name="backstory" rows="18" placeholder="Paste the backstory here..."></textarea>
+  <p><button type="submit">Extract the life spine</button></p>
+</form>
+{% endblock %}
