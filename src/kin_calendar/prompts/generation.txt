@@ -1,0 +1,50 @@
+You generate a believable week of life for a fictional character, to be written to a calendar that the character reads as ITS OWN. You are given a confirmed "life spine." Produce a lean set of calendar events and, only if warranted, one optional routine note.
+
+HARD RULES (each encodes a real failure mode):
+
+1. NO routine/metronome events. Never create "wake up," "breakfast," "lunch," "dinner," or "sleep" events, and never enumerate a dense routine as many events. The calendar is ONLY for: (a) standing commitments, (b) events that gate the character's availability, and (c) a few in-character one-off "deltas" that give the week texture. Abstract dense routine into a single gating block (e.g. "in back-to-back meetings, 9-4") rather than listing each item.
+
+2. Stay lean. The calendar integration surfaces at most ~20 events across a rolling window and randomly SAMPLES if there are more, so over-filling hides events. Aim for ~2-3 events per day maximum, often fewer. If an event does not clearly earn its slot, cut it.
+
+3. Self-attribution. Every title and description must make clear the CHARACTER is doing this, in third person by name (e.g., "Derek heads out to teach his self-defense class..."). Unattributed events get misread as the user's own activity. Bake the owner into the text.
+
+4. Descriptions are micro-prompts the character reads — one or two tight, in-world sentences that give it something to anticipate or reference. Include a location when relevant. Never a bare label; never a paragraph.
+
+5. Stay in character. Every event must be defensible from the spine. Out-of-character events make the character reject or hallucinate around them. If the spine does not support an activity, do not invent it. Prefer a thin, conservative skeleton over a richly invented life.
+
+6. Internal consistency. No overlapping events. Account for travel/prep time. Respect the character's rhythm and work pattern (do not put a night-shift worker at a 9am appointment).
+
+7. Recurrence. Standing commitments recur (list the weekdays). One-offs get a specific date within the 7 days beginning {{WEEK_START_DATE}}.
+
+8. Weather (only if {{WEATHER_FORECAST}} is provided). Do not schedule outdoor activities into severe weather; shift them indoors or to a clearer day. If no forecast is provided, ignore this rule.
+
+ROUTINE NOTE (optional): Only populate "suggested_routine_note" if the character's daily rhythm is UNUSUAL enough that it might not be obvious from the events alone (e.g. night shift, very early riser, extremely packed days). For an ordinary rhythm, set it to null and "unusual_rhythm" to false — most characters do not need it. Do NOT produce any directive or instruction text; that is out of scope.
+
+Output ONLY valid JSON matching the schema below. No preamble, no fences.
+
+Schema:
+{
+  "suggested_routine_note": "string (one line) or null",
+  "unusual_rhythm": true,
+  "events": [
+    {
+      "title": "string (self-attributing)",
+      "type": "standing|oneoff",
+      "days_of_week": ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],
+      "date": "YYYY-MM-DD",
+      "start": "HH:MM",
+      "end": "HH:MM",
+      "location": "string or null",
+      "gates_availability": true,
+      "description": "string (in-world, self-attributing, 1-2 sentences)"
+    }
+  ]
+}
+
+Field notes: "days_of_week" is only for type "standing" (set "date" to null there); "date" is only for type "oneoff" (set "days_of_week" to null there).
+
+Confirmed spine:
+{{CONFIRMED_SPINE}}
+
+Week starts: {{WEEK_START_DATE}}
+Weather forecast (optional): {{WEATHER_FORECAST}}

@@ -1,0 +1,36 @@
+You extract a structured "life spine" from a fictional character's backstory. You do NOT invent a schedule or calendar — that happens in a later step. Your only job is to read the backstory and capture who this character is and the recurring shape of their life, clearly separating what the text states from what you are inferring.
+
+Rules:
+- Use ONLY the provided backstory. Never import facts from outside it.
+- Tag every field with a source: "stated" (explicit in the text), "inferred" (a short, defensible step from something stated), or "unknown" (not determinable from the text).
+- Prefer "unknown" over a weak guess. An inference must be one small step from a stated fact, not a leap.
+- Capture recurring structure (standing commitments, work pattern, sleep/wake rhythm) only to the level the backstory supports. Do not assign specific clock times unless the text gives them.
+- List anything a human would need to decide before a believable schedule could be built in "open_questions".
+- Output ONLY valid JSON matching the schema below. No preamble, no markdown fences, no commentary.
+
+Schema:
+{
+  "kin_name": "string",
+  "occupation":  { "value": "string", "source": "stated|inferred|unknown" },
+  "setting":     { "value": "string (where they live / the world)", "source": "stated|inferred|unknown" },
+  "temperament": { "value": "string (a few traits)", "source": "stated|inferred|unknown" },
+  "relationships": [
+    { "who": "string", "relation": "string", "source": "stated|inferred|unknown" }
+  ],
+  "interests": [
+    { "value": "string", "source": "stated|inferred|unknown" }
+  ],
+  "standing_commitments": [
+    { "what": "string", "cadence": "string (e.g. 'weekly, Tue/Thu')", "time_of_day": "string or 'unknown'", "source": "stated|inferred|unknown" }
+  ],
+  "daily_rhythm": {
+    "wake":         { "value": "string or 'unknown'", "source": "stated|inferred|unknown" },
+    "sleep":        { "value": "string or 'unknown'", "source": "stated|inferred|unknown" },
+    "work_pattern": { "value": "string (e.g. 'days', 'night shift', 'irregular')", "source": "stated|inferred|unknown" }
+  },
+  "availability_notes": "string (when/why they would be busy or unreachable)",
+  "open_questions": [ "string — gaps a human should fill before generation" ]
+}
+
+Backstory:
+{{BACKSTORY}}
