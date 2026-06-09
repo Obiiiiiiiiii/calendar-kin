@@ -117,3 +117,29 @@ def test_coverage_check_passes_with_anchors():
     )
     notes = coverage_check(occs, datetime(2026, 6, 8, 12, 0))
     assert notes == []
+
+
+def test_google_timestamps_parse_and_compare():
+    from datetime import timezone
+
+    from kin_calendar.calendar_writer import _parse_google_ts
+
+    older = _parse_google_ts("2026-06-08T10:00:00.000Z")
+    newer = _parse_google_ts("2026-06-09T10:00:00.000Z")
+    assert older.tzinfo == timezone.utc
+    assert newer > older
+    assert _parse_google_ts(None) is None
+
+
+def test_existing_event_carries_timestamps():
+    from kin_calendar.calendar_writer import _parse_google_ts
+
+    ev = ExistingEvent(
+        title="Derek covers a shift",
+        start=datetime(2026, 6, 9, 17, 0),
+        end=datetime(2026, 6, 9, 19, 0),
+        source="mentioned",
+        created=_parse_google_ts("2026-06-08T10:00:00.000Z"),
+        updated=_parse_google_ts("2026-06-09T10:00:00.000Z"),
+    )
+    assert ev.updated > ev.created

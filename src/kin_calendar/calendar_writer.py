@@ -22,6 +22,14 @@ PROVENANCE_KEY = "kin_source"  # "generated" | "mentioned"
 TOOL_KEY = "kin_tool"
 TOOL_NAME = "kin-calendar"
 
+def _parse_google_ts(value: Optional[str]) -> Optional[datetime]:
+    """Google's created/updated timestamps are RFC3339 UTC, e.g.
+    '2026-06-09T18:00:00.000Z'. Returns a timezone-aware datetime."""
+    if not value:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
 _RRULE_DAY = {
     "Mon": "MO", "Tue": "TU", "Wed": "WE", "Thu": "TH",
     "Fri": "FR", "Sat": "SA", "Sun": "SU",
@@ -129,6 +137,8 @@ class CalendarWriter:
                         start=datetime.fromisoformat(start).replace(tzinfo=None),
                         end=datetime.fromisoformat(end).replace(tzinfo=None),
                         source=props.get(PROVENANCE_KEY, "generated"),
+                        created=_parse_google_ts(item.get("created")),
+                        updated=_parse_google_ts(item.get("updated")),
                     )
                 )
             page_token = result.get("nextPageToken")

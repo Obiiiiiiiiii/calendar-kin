@@ -38,12 +38,18 @@ class Decision(str, Enum):
 
 @dataclass
 class ExistingEvent:
-    """An event already on the calendar (any provenance)."""
+    """An event already on the calendar (any provenance).
+
+    `created`/`updated` are Google's own timestamps (UTC), carried for the
+    phase-2 "newer beats older" resolution; the MVP doesn't branch on them.
+    """
 
     title: str
     start: datetime
     end: datetime
     source: str = "generated"  # "generated" | "mentioned"
+    created: Optional[datetime] = None
+    updated: Optional[datetime] = None
 
 
 @dataclass
