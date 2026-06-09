@@ -55,12 +55,20 @@ kin-calendar extract backstory.txt -o spine.json
 # 2. Confirmed spine → lean week of events (then review events.json)
 kin-calendar generate spine.json -o events.json --week-start 2026-06-09
 
-# 3. Reconcile + write to the dedicated calendar
-kin-calendar write events.json --calendar-name "Kin Life" --timezone America/New_York
+# 3. Pick which Google calendar the kin's life goes on
+kin-calendar calendars                  # lists your calendars and their IDs
+
+# 4. Reconcile + write to the calendar you designated
+kin-calendar write events.json --calendar-id <id> --timezone America/New_York
 
 # Or check what would happen without touching Google:
 kin-calendar write events.json --dry-run
 ```
+
+If you don't designate a calendar with `--calendar-id` (or `KIN_CALENDAR_ID`),
+the tool finds or creates one named "Kin Life" (`--calendar-name` /
+`KIN_CALENDAR_NAME`). Either way it refuses to write into your **primary**
+calendar — the kin's fictional life must stay separate from your real one.
 
 `generate` accepts `--weather "..."` to keep outdoor events out of bad weather.
 

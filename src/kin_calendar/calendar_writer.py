@@ -49,6 +49,22 @@ def build_service(credentials_path: str = "credentials.json", token_path: str = 
     return build("calendar", "v3", credentials=creds)
 
 
+def list_calendars(service) -> List[dict]:
+    """All calendars visible to the authorized account (for the user to pick from)."""
+    entries: List[dict] = []
+    page_token = None
+    while True:
+        result = service.calendarList().list(pageToken=page_token).execute()
+        entries.extend(result.get("items", []))
+        page_token = result.get("nextPageToken")
+        if not page_token:
+            return entries
+
+
+class PrimaryCalendarError(Exception):
+    """Raised when the designated calendar is the account's primary calendar."""
+
+
 class CalendarWriter:
     def __init__(self, service, calendar_id: str, timezone: str):
         self.service = service
@@ -56,17 +72,32 @@ class CalendarWriter:
         self.timezone = timezone
 
     @classmethod
+    def for_calendar_id(cls, service, calendar_id: str, timezone: str) -> "CalendarWriter":
+        """Use a calendar the user designated by ID.
+
+        Refuses the account's primary calendar: the kin's fictional life must
+        live on a calendar separate from the user's real one, or real events
+        bleed into the fiction (and the fiction into real life).
+        """
+        for entry in list_calendars(service):
+            if entry["id"] == calendar_id or (calendar_id == "primary" and entry.get("primary")):
+                if entry.get("primary"):
+                    raise PrimaryCalendarError(
+                        f"{entry['id']!r} is your main personal calendar — pick or create "
+                        "a separate one for the kin (see `kin-calendar calendars`)"
+                    )
+                return cls(service, entry["id"], timezone)
+        raise ValueError(
+            f"calendar {calendar_id!r} not found in this account — "
+            "run `kin-calendar calendars` to list available IDs"
+        )
+
+    @classmethod
     def for_dedicated_calendar(cls, service, calendar_name: str, timezone: str) -> "CalendarWriter":
         """Find the dedicated calendar by name, creating it if missing."""
-        page_token = None
-        while True:
-            result = service.calendarList().list(pageToken=page_token).execute()
-            for entry in result.get("items", []):
-                if entry.get("summary") == calendar_name:
-                    return cls(service, entry["id"], timezone)
-            page_token = result.get("nextPageToken")
-            if not page_token:
-                break
+        for entry in list_calendars(service):
+            if entry.get("summary") == calendar_name and not entry.get("primary"):
+                return cls(service, entry["id"], timezone)
         created = service.calendars().insert(
             body={"summary": calendar_name, "timeZone": timezone}
         ).execute()

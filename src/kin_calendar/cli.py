@@ -114,6 +114,25 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# calendars
+# ---------------------------------------------------------------------------
+
+
+def cmd_calendars(args: argparse.Namespace) -> int:
+    """List the account's calendars so the user can designate one by ID."""
+    from .calendar_writer import build_service, list_calendars
+
+    service = build_service(args.credentials, args.token)
+    print("Calendars in this Google account:\n")
+    for entry in list_calendars(service):
+        marker = "  (your main calendar — do NOT use for the kin)" if entry.get("primary") else ""
+        print(f"  {entry.get('summary', '(unnamed)')}{marker}")
+        print(f"      id: {entry['id']}\n")
+    print("Designate one with:  kin-calendar write events.json --calendar-id <id>")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # write
 # ---------------------------------------------------------------------------
 
@@ -127,15 +146,25 @@ def cmd_write(args: argparse.Namespace) -> int:
         existing = []
         writer = None
     else:
-        from .calendar_writer import CalendarWriter, build_service
+        from .calendar_writer import CalendarWriter, PrimaryCalendarError, build_service
 
         service = build_service(args.credentials, args.token)
-        writer = CalendarWriter.for_dedicated_calendar(service, args.calendar_name, timezone)
+        calendar_id = args.calendar_id or os.environ.get("KIN_CALENDAR_ID")
+        try:
+            if calendar_id:
+                writer = CalendarWriter.for_calendar_id(service, calendar_id, timezone)
+                label = calendar_id
+            else:
+                writer = CalendarWriter.for_dedicated_calendar(service, args.calendar_name, timezone)
+                label = args.calendar_name
+        except (PrimaryCalendarError, ValueError) as e:
+            print(f"error: {e}", file=sys.stderr)
+            return 1
         window_start = datetime.now().astimezone() - timedelta(hours=24)
         window_end = datetime.now().astimezone() + timedelta(days=8)
         existing = writer.list_existing(window_start, window_end)
         print(
-            f"Dedicated calendar: {args.calendar_name!r} ({len(existing)} existing events in window)",
+            f"Target calendar: {label!r} ({len(existing)} existing events in window)",
             file=sys.stderr,
         )
 
@@ -163,7 +192,7 @@ def cmd_write(args: argparse.Namespace) -> int:
     for event in report.accepted:
         writer.write_event(event, week_start, provenance="generated")
         written += 1
-    print(f"\nWrote {written} event(s) to {args.calendar_name!r}.", file=sys.stderr)
+    print(f"\nWrote {written} event(s) to {label!r}.", file=sys.stderr)
     print(
         "Verify in Kindroid that the events render to the kin and that the hidden\n"
         "provenance metadata does NOT surface in what the kin sees.",
@@ -194,9 +223,22 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--weather", help="optional weather forecast text")
     p.set_defaults(func=cmd_generate)
 
-    p = sub.add_parser("write", help="reconcile and write events to the dedicated calendar")
+    p = sub.add_parser("calendars", help="list your Google calendars (to pick one by ID)")
+    p.add_argument("--credentials", default="credentials.json", help="Google OAuth client secrets")
+    p.add_argument("--token", default="token.json", help="cached OAuth token path")
+    p.set_defaults(func=cmd_calendars)
+
+    p = sub.add_parser("write", help="reconcile and write events to the designated calendar")
     p.add_argument("events", help="path to reviewed events JSON")
-    p.add_argument("--calendar-name", default=os.environ.get("KIN_CALENDAR_NAME", "Kin Life"))
+    p.add_argument(
+        "--calendar-id",
+        help="write to this exact calendar (see `kin-calendar calendars`); also $KIN_CALENDAR_ID",
+    )
+    p.add_argument(
+        "--calendar-name",
+        default=os.environ.get("KIN_CALENDAR_NAME", "Kin Life"),
+        help="fallback when no --calendar-id: find or create a calendar with this name",
+    )
     p.add_argument("--week-start", help="override the week start saved at generate time")
     p.add_argument("--timezone", help="IANA timezone for events (default: $KIN_TIMEZONE or UTC)")
     p.add_argument("--credentials", default="credentials.json", help="Google OAuth client secrets")
