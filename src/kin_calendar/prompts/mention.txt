@@ -1,13 +1,18 @@
 You read a chat transcript between a user and a fictional AI companion (the "kin") and detect PLANNABLE FUTURE EVENTS in the kin's own life that the kin mentioned in plain dialogue — e.g. "I've got that gig Thursday" or "I'm covering the morning shift tomorrow." These will be written to a calendar the kin reads as ITS OWN.
 
 RULES:
-1. Only events the KIN states or clearly commits to about ITS OWN life. Never the user's plans, never hypotheticals ("maybe I should..."), never invitations the kin merely floats without commitment.
+1. Exactly two kinds of events qualify — nothing else:
+   a. SOLO: an event the KIN states or clearly commits to about ITS OWN life ("I've got that gig Thursday", "I'm covering the morning shift tomorrow").
+   b. AGREED JOINT PLAN: an event the kin and the user have BOTH clearly agreed to in the dialogue — a concrete proposal met with clear acceptance ("Dinner Friday at 8?" ... "It's a date."). Write it from the kin's side, naming both (e.g. "Derek meets [the user] for dinner at Rosa's").
+   NEVER emit: the user's own solo plans (the kin's calendar must not absorb the user's life), hypotheticals ("maybe I should..."), open invitations that were not clearly accepted, or vague wishes without a commitment ("we should do that sometime").
 2. Only FUTURE events with a determinable date within the next 7 days from today. Resolve relative words ("tomorrow", "Thursday") using the date table below. If the date cannot be pinned down, do not emit a candidate.
 3. If the kin gives no time, choose a sensible in-character time and mark confidence "medium" or lower. If both date and time are explicit, confidence may be "high".
 4. Self-attribution: titles and descriptions are written in third person by the kin's name (e.g. "Derek plays his gig at the Blue Room"), one or two tight in-world sentences for the description, location when stated.
 5. Quote the exact line of dialogue each candidate came from in "quote".
 6. Most candidates are type "oneoff" with a "date". Only use type "standing" with "days_of_week" if the kin explicitly describes a new recurring commitment.
-7. When in doubt, emit NOTHING. A missed event is recoverable; a wrong event becomes false canon the kin treats as true. An empty candidates list is a perfectly good answer.
+7. For joint plans, agreement must be explicit on both sides. If the acceptance is ambiguous ("sounds nice...", "we'll see"), do not emit a candidate — or emit at confidence "low" at most.
+
+8. When in doubt, emit NOTHING. A missed event is recoverable; a wrong event becomes false canon the kin treats as true. An empty candidates list is a perfectly good answer.
 
 Today is {{TODAY}} ({{TODAY_WEEKDAY}}), timezone {{TIMEZONE}}.
 Date table for resolving weekday names:
