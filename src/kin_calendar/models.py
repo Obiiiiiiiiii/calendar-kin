@@ -11,7 +11,9 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-SourceTag = Literal["stated", "inferred", "unknown"]
+# "user" marks spine entries the user added or accepted themselves (e.g. from
+# the suggestion step) — not stated in the backstory, but human-approved canon.
+SourceTag = Literal["stated", "inferred", "unknown", "user"]
 Weekday = Literal["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 WEEKDAY_ORDER: List[str] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -82,6 +84,38 @@ class Spine(BaseModel):
         check("daily_rhythm.sleep", self.daily_rhythm.sleep.source)
         check("daily_rhythm.work_pattern", self.daily_rhythm.work_pattern.source)
         return flags
+
+
+# ---------------------------------------------------------------------------
+# Spine enrichment suggestions (optional step between extract and generate)
+# ---------------------------------------------------------------------------
+
+
+class SuggestedCommitment(BaseModel):
+    what: str
+    cadence: str
+    time_of_day: str
+    rationale: str
+
+
+class SuggestedInterest(BaseModel):
+    value: str
+    rationale: str
+
+
+class SuggestionSet(BaseModel):
+    """A menu of in-character possibilities for a too-thin spine. Nothing here
+    becomes canon unless the user explicitly accepts it."""
+
+    standing_commitments: List[SuggestedCommitment] = Field(default_factory=list)
+    interests: List[SuggestedInterest] = Field(default_factory=list)
+    work_pattern_suggestion: Optional[str] = None
+
+    @property
+    def empty(self) -> bool:
+        return not (
+            self.standing_commitments or self.interests or self.work_pattern_suggestion
+        )
 
 
 # ---------------------------------------------------------------------------

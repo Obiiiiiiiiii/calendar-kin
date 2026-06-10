@@ -17,6 +17,58 @@ becomes "true" for your kin. Fix anything wrong before generating.</p>
 </div>
 {% endif %}
 
+{% if suggestions %}
+<div class="card">
+  <h2>Suggested possibilities</h2>
+  <p class="muted">In-character ideas to fill the gaps — each cites what in the backstory supports
+  it. <strong>Nothing is added unless you tick it.</strong> Whatever you accept becomes part of the
+  kin's life, so choose only what feels true to the character.</p>
+  <form method="post" action="{{ url_for('suggest_apply') }}">
+    {% if suggestions.standing_commitments %}
+    <h3>Standing commitments</h3>
+    {% for s in suggestions.standing_commitments %}
+    <label style="font-weight: normal; display: block; margin: .4rem 0;">
+      <input type="checkbox" name="pick" value="commitment:{{ loop.index0 }}">
+      <strong>{{ s.what }}</strong> ({{ s.cadence }}{% if s.time_of_day != 'unknown' %}, {{ s.time_of_day }}{% endif %})
+      <br><span class="muted">why: {{ s.rationale }}</span>
+    </label>
+    {% endfor %}
+    {% endif %}
+    {% if suggestions.interests %}
+    <h3>Interests</h3>
+    {% for s in suggestions.interests %}
+    <label style="font-weight: normal; display: block; margin: .4rem 0;">
+      <input type="checkbox" name="pick" value="interest:{{ loop.index0 }}">
+      <strong>{{ s.value }}</strong>
+      <br><span class="muted">why: {{ s.rationale }}</span>
+    </label>
+    {% endfor %}
+    {% endif %}
+    {% if suggestions.work_pattern_suggestion %}
+    <h3>Work pattern</h3>
+    <label style="font-weight: normal; display: block; margin: .4rem 0;">
+      <input type="checkbox" name="pick" value="work_pattern">
+      <strong>{{ suggestions.work_pattern_suggestion }}</strong>
+      <span class="muted">(replaces the spine's current work_pattern)</span>
+    </label>
+    {% endif %}
+    <p><button type="submit">Add ticked items to the spine</button></p>
+  </form>
+  <form method="post" action="{{ url_for('suggest_dismiss') }}">
+    <button type="submit" class="secondary">Dismiss all</button>
+  </form>
+</div>
+{% else %}
+<div class="card">
+  <p class="muted">Spine looking thin (no commitments, no rhythm)? Get a menu of in-character
+  possibilities to accept or reject — useful for characters whose backstory doesn't spell out a
+  schedule.</p>
+  <form method="post" action="{{ url_for('suggest') }}">
+    <button type="submit" class="secondary">Suggest possibilities</button>
+  </form>
+</div>
+{% endif %}
+
 <form method="post" action="{{ url_for('spine') }}">
   <textarea name="spine_json" rows="24">{{ spine_json }}</textarea>
   <p><button type="submit" class="secondary">Save edits</button></p>

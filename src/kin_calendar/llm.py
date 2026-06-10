@@ -21,7 +21,7 @@ from typing import Optional, Type, TypeVar
 import anthropic
 from pydantic import BaseModel, ValidationError
 
-from .models import DuplicateCheck, GenerationResult, MentionScan, Spine
+from .models import DuplicateCheck, GenerationResult, MentionScan, Spine, SuggestionSet
 
 DEFAULT_MODEL = "claude-opus-4-8"
 MAX_TOKENS = 16000
@@ -89,6 +89,20 @@ def generate_events(
         .replace("{{WEATHER_FORECAST}}", weather_forecast or "(none provided)")
     )
     return _call(prompt, GenerationResult, "KIN_GENERATE_TEMPERATURE")
+
+
+def suggest_enrichments(backstory: str, spine: Spine) -> SuggestionSet:
+    """Optional step: propose in-character spine additions for a too-thin spine.
+
+    Output is a menu the user accepts/rejects item by item — suggestions never
+    enter the spine on their own.
+    """
+    prompt = (
+        _load_prompt("enrich.txt")
+        .replace("{{BACKSTORY}}", backstory or "(backstory text not available — work from the spine alone)")
+        .replace("{{SPINE}}", json.dumps(spine.model_dump(), indent=2))
+    )
+    return _call(prompt, SuggestionSet, "KIN_GENERATE_TEMPERATURE")
 
 
 def detect_mentions(
