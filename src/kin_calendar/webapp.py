@@ -451,7 +451,12 @@ def create_app(store: Store | None = None) -> Flask:
             return redirect(url_for("settings"))
         flow = _google_flow()
         auth_url, oauth_state = flow.authorization_url(
-            access_type="offline", prompt="consent", include_granted_scopes="true"
+            access_type="offline",
+            # select_account: always show the account chooser — users with
+            # multiple Google accounts must pick the one that owns the kin's
+            # calendar, not whichever Google used last.
+            prompt="consent select_account",
+            include_granted_scopes="true",
         )
         session["oauth_state"] = oauth_state
         return redirect(auth_url)
