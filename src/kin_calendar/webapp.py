@@ -426,7 +426,7 @@ def create_app(store: Store | None = None) -> Flask:
             kindroid_key_set=bool(store.setting("kindroid_api_key", "KINDROID_API_KEY")),
         )
 
-    def _google_flow():
+    def _google_flow(state: str | None = None, code_verifier: str | None = None):
         from google_auth_oauthlib.flow import Flow
 
         client_config = {
@@ -437,10 +437,20 @@ def create_app(store: Store | None = None) -> Flask:
                 "token_uri": "https://oauth2.googleapis.com/token",
             }
         }
+        kwargs: dict = {}
+        if state:
+            kwargs["state"] = state
+        if code_verifier:
+            # The callback runs in a fresh Flow object; hand back the PKCE
+            # verifier generated at /google/connect or token exchange fails
+            # with "invalid_grant: Missing code verifier".
+            kwargs["code_verifier"] = code_verifier
+            kwargs["autogenerate_code_verifier"] = False
         return Flow.from_client_config(
             client_config,
             scopes=GOOGLE_SCOPES,
             redirect_uri=url_for("google_callback", _external=True),
+            **kwargs,
         )
 
     @app.get("/google/connect")
@@ -459,12 +469,16 @@ def create_app(store: Store | None = None) -> Flask:
             include_granted_scopes="true",
         )
         session["oauth_state"] = oauth_state
+        session["code_verifier"] = flow.code_verifier
         return redirect(auth_url)
 
     @app.get("/google/callback")
     @login_required
     def google_callback():
-        flow = _google_flow()
+        flow = _google_flow(
+            state=session.get("oauth_state"),
+            code_verifier=session.pop("code_verifier", None),
+        )
         try:
             flow.fetch_token(authorization_response=request.url)
         except Exception as e:  # noqa: BLE001
