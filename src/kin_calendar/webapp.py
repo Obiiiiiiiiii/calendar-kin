@@ -177,6 +177,8 @@ def create_app(store: Store | None = None) -> Flask:
                 flash(f"Extraction failed: {e}")
                 return redirect(url_for("extract"))
             store.write_text(store.spine_path, spine.model_dump_json(indent=2) + "\n")
+            store.write_text(store.backstory_path, backstory)  # kept for the suggestion step
+            store.suggestions_path.unlink(missing_ok=True)  # stale menu from a previous character
             store.update_state(kin_name=spine.kin_name)
             flash("Spine extracted — review it below before generating.")
             return redirect(url_for("spine"))
@@ -204,13 +206,75 @@ def create_app(store: Store | None = None) -> Flask:
             flash("No spine yet — start by pasting the backstory.")
             return redirect(url_for("extract"))
         parsed = Spine.model_validate_json(raw)
+        suggestions = None
+        raw_suggestions = store.read_text(store.suggestions_path)
+        if raw_suggestions:
+            from .models import SuggestionSet
+
+            suggestions = SuggestionSet.model_validate_json(raw_suggestions)
         return render_template(
             "spine.html",
             spine_json=raw,
             flags=parsed.review_flags(),
             questions=parsed.open_questions,
+            suggestions=suggestions,
             today=date.today().isoformat(),
         )
+
+    @app.post("/suggest")
+    @login_required
+    def suggest():
+        raw = store.read_text(store.spine_path)
+        if raw is None:
+            flash("No spine yet.")
+            return redirect(url_for("extract"))
+        from .llm import suggest_enrichments
+
+        parsed = Spine.model_validate_json(raw)
+        backstory = store.read_text(store.backstory_path) or ""
+        try:
+            suggestions = suggest_enrichments(backstory, parsed)
+        except Exception as e:  # noqa: BLE001
+            flash(f"Suggestion step failed: {e}")
+            return redirect(url_for("spine"))
+        if suggestions.empty:
+            flash("The spine already looks full enough — no suggestions this time.")
+            return redirect(url_for("spine"))
+        store.write_text(store.suggestions_path, suggestions.model_dump_json(indent=2) + "\n")
+        flash("Possibilities below — tick only what feels true to the character. Nothing is added until you accept it.")
+        return redirect(url_for("spine"))
+
+    @app.post("/suggest/apply")
+    @login_required
+    def suggest_apply():
+        raw = store.read_text(store.spine_path)
+        raw_suggestions = store.read_text(store.suggestions_path)
+        if raw is None or raw_suggestions is None:
+            flash("Nothing to apply.")
+            return redirect(url_for("spine"))
+        selected = request.form.getlist("pick")
+        if not selected:
+            flash("Nothing was ticked — the spine is unchanged.")
+            return redirect(url_for("spine"))
+        from .models import SuggestionSet
+        from .suggest import apply_suggestions
+
+        merged = apply_suggestions(
+            Spine.model_validate_json(raw),
+            SuggestionSet.model_validate_json(raw_suggestions),
+            selected,
+        )
+        store.write_text(store.spine_path, merged.model_dump_json(indent=2) + "\n")
+        store.suggestions_path.unlink(missing_ok=True)
+        flash(f"Added {len(selected)} item(s) to the spine, tagged as your additions.")
+        return redirect(url_for("spine"))
+
+    @app.post("/suggest/dismiss")
+    @login_required
+    def suggest_dismiss():
+        store.suggestions_path.unlink(missing_ok=True)
+        flash("Suggestions dismissed.")
+        return redirect(url_for("spine"))
 
     @app.post("/generate")
     @login_required

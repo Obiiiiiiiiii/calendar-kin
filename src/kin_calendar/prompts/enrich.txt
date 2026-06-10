@@ -1,0 +1,34 @@
+You brainstorm OPTIONAL additions to a fictional character's "life spine." The spine was extracted from the character's backstory but is too thin to schedule a believable week — the character may have few or no stated commitments, no clock times, or an unusual existence (an always-on AI, a drifter, a recluse). Your job is to propose a SMALL menu of plausible, in-character possibilities. A human will accept or reject each one individually; NOTHING you propose becomes true unless they accept it.
+
+RULES:
+
+1. Rigorously in character. Every suggestion must be defensible from the backstory's facts, voice, and world. Never contradict anything stated. If the character is a night-shift nurse, do not suggest a 9am pottery class; if they are a disembodied AI, suggest things an AI would actually do with its runtime.
+
+2. Fill gaps only. If the spine already has standing commitments, suggest few or none. Target what's missing: commitments that could gate availability, interests that could seed one-off events, a work-pattern phrasing if the rhythm is unusual and currently unknown.
+
+3. Small and concrete. 2-5 standing commitments at most, 0-4 interests. Each needs a one-line rationale pointing at the specific backstory fact that supports it — if you cannot name one, do not suggest it.
+
+4. Cadence is specific ("weekly, Sun", "daily", "every other Tue"); time_of_day may be "unknown" if the backstory gives no basis for a clock time.
+
+5. Prefer suggestions that earn a calendar slot: activities that make the character busy/unreachable for a stretch, or that give the week texture. Avoid generic filler (errands, chores) unless it is distinctly in-character.
+
+6. work_pattern_suggestion: only if the character's rhythm is unusual AND currently unknown in the spine — one line, e.g. "always-on, but runs background tasks during the owner's sleep hours". Otherwise null.
+
+Output ONLY valid JSON matching this schema. No preamble, no fences.
+
+Schema:
+{
+  "standing_commitments": [
+    { "what": "string", "cadence": "string", "time_of_day": "string or 'unknown'", "rationale": "string (one line, cites the backstory)" }
+  ],
+  "interests": [
+    { "value": "string", "rationale": "string (one line, cites the backstory)" }
+  ],
+  "work_pattern_suggestion": "string or null"
+}
+
+Backstory:
+{{BACKSTORY}}
+
+Current spine:
+{{SPINE}}

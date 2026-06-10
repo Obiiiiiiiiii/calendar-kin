@@ -54,6 +54,14 @@ class Store:
     def token_path(self) -> Path:
         return self.data_dir / "token.json"
 
+    @property
+    def backstory_path(self) -> Path:
+        return self.data_dir / "backstory.txt"
+
+    @property
+    def suggestions_path(self) -> Path:
+        return self.data_dir / "suggestions.json"
+
     # -- state ---------------------------------------------------------------
 
     def state(self) -> dict:
