@@ -221,6 +221,36 @@ def create_app(store: Store | None = None) -> Flask:
             today=date.today().isoformat(),
         )
 
+    @app.post("/spine/answers")
+    @login_required
+    def spine_answers():
+        raw = store.read_text(store.spine_path)
+        if raw is None:
+            flash("No spine yet.")
+            return redirect(url_for("extract"))
+        parsed = Spine.model_validate_json(raw)
+        pairs = []
+        for i, question in enumerate(parsed.open_questions):
+            answer = request.form.get(f"answer_{i}", "").strip()
+            if answer:
+                pairs.append((question, answer))
+        if not pairs:
+            flash("No answers entered — the spine is unchanged.")
+            return redirect(url_for("spine"))
+        from .llm import incorporate_answers
+
+        try:
+            updated = incorporate_answers(parsed, pairs)
+        except Exception as e:  # noqa: BLE001
+            flash(f"Couldn't fold the answers in: {e}")
+            return redirect(url_for("spine"))
+        store.write_text(store.spine_path, updated.model_dump_json(indent=2) + "\n")
+        flash(
+            f"Folded {len(pairs)} answer(s) into the spine (tagged as your additions) — "
+            "give the result a once-over below."
+        )
+        return redirect(url_for("spine"))
+
     @app.post("/suggest")
     @login_required
     def suggest():

@@ -12,8 +12,16 @@ becomes "true" for your kin. Fix anything wrong before generating.</p>
 {% endif %}
 {% if questions %}
 <div class="card">
-  <strong>Open questions</strong> — decide these before generating:
-  <ul class="compact">{% for q in questions %}<li>{{ q }}</li>{% endfor %}</ul>
+  <strong>Open questions</strong> — answer any of these in plain English and they'll be folded
+  into the spine for you (no JSON editing). Leave blank to skip.
+  <form method="post" action="{{ url_for('spine_answers') }}">
+    {% for q in questions %}
+    <label style="font-weight: normal; margin-top: .7rem;">{{ q }}</label>
+    <input type="text" name="answer_{{ loop.index0 }}" placeholder="(leave blank to skip)"
+           style="max-width: 100%;">
+    {% endfor %}
+    <p><button type="submit">Fold answers into the spine</button></p>
+  </form>
 </div>
 {% endif %}
 

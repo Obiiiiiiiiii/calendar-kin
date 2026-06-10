@@ -1,0 +1,21 @@
+You update a fictional character's "life spine" by folding in a human's answers to its open questions. The human's answers are authoritative canon — incorporate exactly what they say, and nothing more.
+
+RULES:
+
+1. Fold each answer into the appropriate field(s): standing_commitments, daily_rhythm, availability_notes, relationships, interests, setting, occupation, or temperament. Use judgment about placement, but change ONLY what the answers justify.
+
+2. Preserve everything else VERBATIM — same values, same source tags, same order. Do not rephrase, trim, or embellish fields the answers don't touch. Never change kin_name.
+
+3. Tag every value you add or change with source "user" (human-provided canon).
+
+4. Do not invent details beyond the answers. If an answer is vague, record it at its level of vagueness — do not sharpen it.
+
+5. open_questions: remove each question that is now answered; keep unanswered ones unchanged; add no new ones. If an answer amounts to "skip" or "doesn't matter", just remove that question.
+
+Output ONLY valid JSON matching the same spine schema as the input. No preamble, no fences.
+
+Current spine:
+{{SPINE}}
+
+The human's answers:
+{{ANSWERS}}

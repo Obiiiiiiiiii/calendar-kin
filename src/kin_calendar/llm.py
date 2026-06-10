@@ -91,6 +91,22 @@ def generate_events(
     return _call(prompt, GenerationResult, "KIN_GENERATE_TEMPERATURE")
 
 
+def incorporate_answers(spine: Spine, qa_pairs: list[tuple[str, str]]) -> Spine:
+    """Fold plain-English answers to the spine's open questions into the spine.
+
+    Answers are authoritative user canon: changed/added values come back
+    tagged source="user", answered questions are removed, everything else is
+    preserved verbatim.
+    """
+    answers = "\n\n".join(f"Q: {q}\nA: {a}" for q, a in qa_pairs)
+    prompt = (
+        _load_prompt("incorporate.txt")
+        .replace("{{SPINE}}", json.dumps(spine.model_dump(), indent=2))
+        .replace("{{ANSWERS}}", answers)
+    )
+    return _call(prompt, Spine, "KIN_EXTRACT_TEMPERATURE")
+
+
 def suggest_enrichments(backstory: str, spine: Spine) -> SuggestionSet:
     """Optional step: propose in-character spine additions for a too-thin spine.
 
