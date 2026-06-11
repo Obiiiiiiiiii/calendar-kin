@@ -335,7 +335,10 @@ def create_app(store: Store | None = None) -> Flask:
         week_start = date.fromisoformat(output.week_start)
         report = reconcile(output.result.events, [], week_start)
         rows = []
+        occurrence_total = 0
         for ev in output.result.events:
+            occurrences = len(expand_occurrences(ev, week_start))
+            occurrence_total += occurrences
             when = (
                 f"{','.join(ev.days_of_week)} (weekly)" if ev.type == "standing" else ev.date
             )
@@ -345,10 +348,11 @@ def create_app(store: Store | None = None) -> Flask:
                     "time": f"{ev.start}–{ev.end}",
                     "title": ev.title,
                     "gates": ev.gates_availability,
+                    "occurrences": occurrences,
                 }
             )
         problems = [f"{v.event.title}: {v.decision.value} — {v.reason}" for v in report.rejected]
-        return output, rows, problems, report.warnings
+        return output, rows, problems, report.warnings, occurrence_total
 
     @app.route("/events", methods=["GET", "POST"])
     @login_required
@@ -371,13 +375,14 @@ def create_app(store: Store | None = None) -> Flask:
         if raw is None:
             flash("No events yet — generate them from the spine first.")
             return redirect(url_for("spine"))
-        output, rows, problems, warnings = _events_context(raw)
+        output, rows, problems, warnings, occurrence_total = _events_context(raw)
         return render_template(
             "events.html",
             events_json=raw,
             rows=rows,
             problems=problems,
             warnings=warnings,
+            occurrence_total=occurrence_total,
             routine_note=output.result.suggested_routine_note,
             calendar_label=store.state().get("calendar_label"),
         )
