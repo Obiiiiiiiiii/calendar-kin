@@ -4,16 +4,21 @@
 
 {% if rows %}
 <table>
-  <tr><th>When</th><th>Time</th><th>Event</th><th></th></tr>
+  <tr><th>When</th><th>Time</th><th>Event</th><th>Slots</th><th></th></tr>
   {% for r in rows %}
   <tr>
     <td>{{ r.when }}</td>
     <td>{{ r.time }}</td>
     <td>{{ r.title }}</td>
+    <td>{{ r.occurrences }}</td>
     <td>{% if r.gates %}<span class="pill">busy/unreachable</span>{% endif %}</td>
   </tr>
   {% endfor %}
 </table>
+<p class="muted">{{ occurrence_total }} occurrence slot(s) used this week.
+Kindroid hides events beyond ~20 in its window, so the target is ≤ 14 (hard stop at 18) —
+the headroom is for events the chat scanner adds later. A daily event costs 7 slots; consider
+fewer days per week if you're over.</p>
 {% endif %}
 
 {% for p in problems %}<div class="flash">Problem: {{ p }}</div>{% endfor %}
